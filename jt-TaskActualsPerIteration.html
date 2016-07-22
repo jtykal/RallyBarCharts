@@ -243,7 +243,7 @@ function runMainQuery() {
         type: "Iteration",
         fetch: "Name,ObjectID,StartDate,EndDate",
         order: "EndDate desc",
-        query: "((Project.ObjectID = \"__PROJECT_OID__\") AND (EndDate <= " + today + "))"
+        query: "((Project.ObjectID = \"__PROJECT_OID__\") AND (EndDate < " + today + "))"
     };
 
 // console.log("Calling loadCapacities");

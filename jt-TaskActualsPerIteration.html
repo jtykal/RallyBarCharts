@@ -1,0 +1,314 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<title>Jim's Bar Chart</title>
+<meta name="Name" content="App: Iteration Bar Chart"/>
+<meta name="Version" content="1.0"/>
+<meta name="Vendor" content="Tony Huang"/>
+<link rel="stylesheet" type="text/css" href="/slm/css/rally/core.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="/slm/css/slm.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="/slm/css/sprites.css" charset="utf-8"/>
+<script type="text/javascript" src="/slm/js-lib/dojo/1.3.1/dojo/dojo.js"></script>
+<script type="text/javascript" src="/apps/1.33/lib/ejsc/EJSChart.js"></script>
+<script type="text/javascript" src="/slm/mashup/1.20/js/batch-toolkit.js"></script>
+<script type="text/javascript" src="/slm/mashup/1.20/js/utilities.js"></script>
+<script type="text/javascript" src="/slm/js/slm.js"></script>
+<script type="text/javascript">
+
+dojo.addOnLoad(initPage);
+dojo.require("dojo.date.stamp");
+
+var ESTIMATION_UNIT = "Hours";
+var KEY_PATTERN = /[^a-zA-Z0-9]+/g;
+var batchToolkit;
+var chart;
+var iterationMap = new Array();
+var productivitySeries = [];
+
+//====================================================
+// Adjust these values to match desired query results
+//====================================================
+var LOB = "Enterprise";
+var NAME_MATCH = "QA";
+var MAX_ITERATIONS = 10;
+//====================================================
+
+if (!Number.toFixed) {
+     Number.prototype.toFixed = function(x) {
+        var temp = this;
+        temp = Math.round(temp * Math.pow(10, x)) / Math.pow(10, x);
+        return temp;
+    };
+}
+                
+function formatDate(date) {
+    var day = date.getDate();
+    if (day < 10) {
+        day = "0" + day;
+    }
+    var month = date.getMonth() + 1;
+    if (month < 10) {
+        month = "0" + month;
+    }
+    var year = date.getFullYear();
+        
+    return month + "/" + day + "/" + year;
+}
+        
+function drawChart(resultsMap) {
+
+// console.log("Starting drawChart");
+
+    var i, j, story, sum = 0, count = 0;
+        
+    if (typeof chart !== "undefined") {
+        chart.remove();
+    }
+        
+    for (var key in resultsMap) {
+    
+// console.log("drawChart - inside loop 1, key is ", key);
+
+        if (key != "errors" && key != "warnings") {
+            var stories = resultsMap[key];
+            var my_hours = 0;
+            var task;
+            for (i = 0; i < stories.length; i++) {
+                story = stories[i];
+                
+// console.log("drawChart - inside loop 2, Story name is ", story.Name);
+                
+                if ((LOB == "") || (story.LineofBusiness == LOB)) {
+                    var tasks = story.Tasks;
+                    for (j = 0; j < tasks.length; j++) {
+                        task = tasks[j];
+                        if ((NAME_MATCH == "") || (task.Name.indexOf(NAME_MATCH) > -1)) {
+                            my_hours += task.Actuals;
+                        }
+                    }
+                }
+            }
+            iterationMap[key].my_hours = my_hours;
+        
+            for (i = 0; i < productivitySeries.length; i++) {
+                if (productivitySeries[i][0] == iterationMap[key].name) {
+                    productivitySeries[i][1] = iterationMap[key].my_hours;
+                    break;
+                }
+            }
+            sum += iterationMap[key].my_hours;
+            count++;
+        }
+    }
+        
+    chart = new EJSC.Chart("chart_div", {
+        show_legend: false,
+        show_titlebar: false,
+        allow_zoom: false,
+        axis_bottom: {
+            caption: "Iterations",
+            stagger_ticks: true,
+            grid: {show: false},
+            size: 40
+        },
+        axis_left: {
+            min_extreme: 0.0,
+            caption: NAME_MATCH + " Task Hours"
+        }
+    });
+        
+    var average = sum / count;
+    average = average.toFixed(2);
+    if (LOB == "") {
+        document.getElementById("average_div").innerHTML = "<strong>ALL LOBs: Average " + NAME_MATCH + " Task Hours for last " +
+            count + " iterations:</strong>&nbsp;&nbsp;&nbsp;" + average;
+    }
+    else {
+       document.getElementById("average_div").innerHTML = "<strong> " + LOB + " LOB: Average " + NAME_MATCH + " Task Hours for last " +
+            count + " iterations:</strong>&nbsp;&nbsp;&nbsp;" + average;
+    }
+    document.getElementById("scoping_msg").innerHTML = "<em>Data is shown for the current project scoping rules in the Project Picker.</em>";
+        
+    var SERIES_TITLE = "Series";
+    var TREND_LINE_TITLE = "Trend Line";
+        
+    var barSeries = new EJSC.BarSeries(
+            new EJSC.ArrayDataHandler(productivitySeries),
+            {
+                title: SERIES_TITLE,
+                color: "rgb(7,102,146)",
+                y_axis_formatter: new EJSC.NumberFormatter({
+                    variable_decimals: 3
+                })
+            }
+    );
+        
+    chart.addSeries(barSeries);
+        
+    if (count > 1) {
+        var trendSeries = new EJSC.TrendSeries(
+                barSeries,
+                "linear",
+                {
+                    title: TREND_LINE_TITLE,
+                    lineWidth: 1,
+                    color: "rgb(7,102,146)",
+                    opacity: 100,
+                    y_axis_formatter: new EJSC.NumberFormatter({
+                        variable_decimals: 3
+                    })
+                }
+        );
+        
+        chart.addSeries(trendSeries);
+    }
+        
+    chart.onShowHint = function(point, series, chart, hint, hoverOrSelect) {
+        if (series.title == TREND_LINE_TITLE) {
+            return "<strong>Actual Hours Trend:</strong> " + point.y.toFixed(2);
+        } else if (series.title == SERIES_TITLE) {
+            var key = point.x.replace(KEY_PATTERN, "_");
+            var startDate = RALLY.Mashup.Utilities.convertIsoDateOnly(iterationMap[key].startDate);
+            var endDate = RALLY.Mashup.Utilities.convertIsoDateOnly(iterationMap[key].endDate);
+            return "<strong>[x]</strong><br/><strong>Dates:</strong> " + formatDate(startDate) + " - " +
+                    formatDate(endDate) + "<br/>" +
+                    "<strong>Actual Hours:</strong> " + iterationMap[key].my_hours.toFixed(2) + " " + ESTIMATION_UNIT;
+        } else {
+            throw "Unrecognized series: " + series.title;
+        }
+        
+    };
+}
+        
+function loadCapacities(results) {
+
+// console.log("Started loadCapacities");
+
+    if (results.iterations.length == 0) {
+        document.getElementById("chart_div").innerHTML = "No Iterations for this project.";
+        document.getElementById("scoping_msg").innerHTML = "";
+        return;
+    }
+        
+    var queries = [];
+    var count = 0;
+    for (var i = 0; i < results.iterations.length && count < MAX_ITERATIONS; i++) {
+        var iteration = results.iterations[i];
+        var key = iteration.Name.replace(KEY_PATTERN, "_");
+        
+// console.log("Iteration name is " + iteration.Name);
+        
+        iterationMap[key] = {
+            name: iteration.Name,
+            startDate: iteration.StartDate,
+            endDate: iteration.EndDate,
+            my_hours: 0
+        };
+        
+        var queryObject = {
+            key: key,
+            type: "HierarchicalRequirement",
+            fetch: ['TaskActualTotal','Tasks','Name','Actuals','LineofBusiness'],
+            
+            // Scope using Iteration Name instead of ObjectID to get child projects too!
+            query: "(Iteration.Name = \"" + iteration.Name + "\")"
+            //query: "(Iteration.ObjectID = \"" + iteration.ObjectID + "\")"
+        };
+        
+        queries.unshift(queryObject);
+        productivitySeries.unshift([iteration.Name, 0]);
+        count++;
+    }
+        
+    if (count > 0) {
+    
+// console.log("calling drawChart");
+
+        batchToolkit.findAll(queries, drawChart);
+    } else {
+        document.getElementById("chart_div").innerHTML = "User Iteration Capacities have " +
+                "not been defined (set these values on the Team Status page).";
+        document.getElementById("scoping_msg").innerHTML = "";
+    }
+}
+        
+function runMainQuery() {
+
+// console.log("Started runMainQuery");
+
+    var today = dojo.date.stamp.toISOString(new Date(), {milliseconds: true, zulu: true});
+        
+    var queryObject = {
+        key: "iterations",
+        type: "Iteration",
+        fetch: "Name,ObjectID,StartDate,EndDate",
+        order: "EndDate desc",
+        query: "((Project.ObjectID = \"__PROJECT_OID__\") AND (EndDate <= " + today + "))"
+    };
+
+// console.log("Calling loadCapacities");
+
+    batchToolkit.findAll(queryObject, loadCapacities);
+}
+        
+function initPage() {
+
+// console.log("Started initPage");
+
+    RALLY.Mashup.Utilities.showPrintButton();
+    batchToolkit = new RALLY.Mashup.BatchToolkit("__WORKSPACE_OID__", "__PROJECT_OID__",
+            "__PROJECT_SCOPING_UP__", "__PROJECT_SCOPING_DOWN__");
+    runMainQuery();
+}
+</script>
+
+<style type="text/css">
+    body {
+        background: white;
+    }
+
+    .lbl {
+        text-align: left;
+        white-space: nowrap;
+        font-size: 13px;
+    }
+
+    td {
+        font-size: 11px;
+    }
+
+</style>
+</head>
+<body>
+<div class="titlebar" style="float: left;" id="title">Actual Task Hours</div>
+<table>
+    <tr>
+        <td style="text-align: left; width: 99%;">
+        <td style="text-align: right; width: 1%;">
+            <img id="do" onmouseover="RALLY.Mashup.Utilities.showcbButton();"
+                 onmouseout="hidecbMenu('buttons',event);" style="vertical-align: middle;"
+                 src="/slm/images/menu_actions.gif"/>
+
+            <div style="position:relative;top:5px" align="left">
+                <div id="buttons" class="do-menu" style="left:0px;"
+                     onmouseover="document.body.style.cursor='pointer';"
+                     onmouseout="document.body.style.cursor='default';hidecbMenu('buttons',event);">
+                    <a id="print" onclick="RALLY.Mashup.Utilities.printPage()">Print...</a>
+                </div>
+            </div>
+        </td>
+    </tr>
+</table>
+<div style="clear: both;"></div>
+<div style="padding: 5px; margin: 0px auto; background-color: #fff; width: 95%;">
+    <div id="average_div" style="margin-bottom: 20px;"></div>
+    <div id="chart_div" style="width:100%; height: 300px;">
+        <div>
+            <img alt="Progress" src="/slm/images/icon_spinner.gif"/>
+            <em>loading chart...</em>
+        </div>
+    </div>
+    <div id="scoping_msg" style="margin-top: 10px; margin-bottom: 10px;"></div>
+</div>
+</body>
+</html>

@@ -1,6 +1,9 @@
 # RallyBarCharts
 Various old school bar charts - Productivity, Utilization, Story count/points, Task actual hours - per Iteration
 
+<B>jt-EnhancedVelocityChart.html</B><br>
+This is a customized version of the Enhanced Velocity Chart app that appears in the Rally app catalog. It differs in that it only includes iterations whose "EndDate < TODAY". The original chart include interations that end today ("EndDate <= TODAY"). Removing today's iteration is consistent with the behavior of the Velocity Chart report and app. Furthermore, there is an issue where the app was counting story points accepted today as being AFTER the end of iteration, even though the iteration doesn't end until midnight.<br>
+
 <B>jt-ProductivityChart.html</B><br>
 This is a customized version of the Productivity Chart app that appears in the Rally app catalog. It computes team-level Productivity (Points/Hour) using PlanEstimate for "Accepted" User Stories divided by Capacity Hours (from Team Status) for each of the last X (default 10) Iterations (number of iterations is configurable in the app code by setting the <b>MAX_ITERATIONS</b> value). It ignores capacity hours for deleted/disabled users. It works only for Teams at the lowest level of the Project Picker -- it does not "roll-up" capacity total from sub-teams (although I am working on this as an update...)<br>
 

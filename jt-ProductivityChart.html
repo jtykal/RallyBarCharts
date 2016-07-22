@@ -213,7 +213,7 @@ function runMainQuery() {
         // jt - 2016-07-01: need to fetch User,Disabled,Deleted in order to check if user is active before adding capacity
         fetch: "Name,ObjectID,StartDate,EndDate,UserIterationCapacities,Capacity,User,Disabled,Deleted",
         order: "EndDate desc",
-        query: "((Project.ObjectID = \"__PROJECT_OID__\") AND (EndDate <= " + today + "))"
+        query: "((Project.ObjectID = \"__PROJECT_OID__\") AND (EndDate < " + today + "))"
     };
 
     batchToolkit.findAll(queryObject, loadCapacities);

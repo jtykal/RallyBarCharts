@@ -187,7 +187,7 @@ function loadCapacities(results) {
                 key: key,
                 type: "HierarchicalRequirement",
                 fetch: "PlanEstimate",
-                query: "((Iteration.ObjectID = \"" + iteration.ObjectID + "\") AND (ScheduleState = \"Accepted\"))"
+                query: "((Iteration.ObjectID = \"" + iteration.ObjectID + "\") AND (AcceptedDate != null))"
             };
 
             queries.unshift(queryObject);
